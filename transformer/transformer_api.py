@@ -171,7 +171,7 @@ def transform_file(input_file, mapping, force=False):
             shopify_values['handle'],
             shopify_values['title'],
             shopify_values['vendor'],
-            'Default Title',
+            'Title',
             'Default Title',
             shopify_values['sku'],
             shopify_values['stock'],
