@@ -12,6 +12,8 @@ shopify_columns = {
     'handle': 'Handle',
     'title': 'Title',
     'vendor': 'Vendor',
+    'option1_name': 'Option1 Name',
+    'option1_value': 'Option1 Value',
     'sku': 'Variant SKU',
     'price': 'Variant Price',
     'stock': 'Variant Inventory Qty'
@@ -49,6 +51,8 @@ def transform_file(input_file, mapping, force=False):
         shopify_columns['handle'],
         shopify_columns['title'],
         shopify_columns['vendor'],
+        shopify_columns['option1_name'],
+        shopify_columns['option1_value'],
         shopify_columns['sku'],
         shopify_columns['stock'],
         shopify_columns['price']
@@ -167,6 +171,8 @@ def transform_file(input_file, mapping, force=False):
             shopify_values['handle'],
             shopify_values['title'],
             shopify_values['vendor'],
+            'Default Title',
+            'Default Title',
             shopify_values['sku'],
             shopify_values['stock'],
             shopify_values['price']
