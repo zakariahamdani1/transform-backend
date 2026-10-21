@@ -3,14 +3,22 @@ from rest_framework.response import Response
 from rest_framework.decorators import api_view
 import json
 from .transformer_api import transform_file
+from .shopify_columns import SHOPIFY_COLUMNS
 
 @api_view(['POST'])
 def test_api(request):
     uploaded_file = request.FILES['file']
-    mapping = json.loads(request.POST['mapping'])
-
+    mappings = json.loads(request.POST['mappings'])
+    selected_columns = json.loads(
+        request.POST.get('selected_columns', '[]')
+    )
     force = request.POST.get('force') == 'true'
-    result = transform_file(uploaded_file, mapping, force)
+
+    result = transform_file(
+        uploaded_file,
+        mappings,
+        force,
+    )
 
     if 'structure_errors' in result:
         return Response({
@@ -29,3 +37,8 @@ def test_api(request):
     response = HttpResponse(result["csv_content"], content_type="text/csv")
     response["Content-Disposition"] = 'attachment; filename="transformed.csv"'
     return response
+
+
+@api_view(['GET'])
+def get_shopify_columns(request):
+    return Response(SHOPIFY_COLUMNS)

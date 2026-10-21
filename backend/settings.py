@@ -24,9 +24,13 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.environ['SECRET_KEY']
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get('DEBUG', 'True') == 'True'
+DEBUG = os.environ.get('DEBUG', 'False') == 'True'
 
-ALLOWED_HOSTS = ['csv-transformer-backend.onrender.com']
+ALLOWED_HOSTS = [
+    'csv-transformer-backend.onrender.com',
+    '127.0.0.1',
+    'localhost',
+]
 
 
 # Application definition

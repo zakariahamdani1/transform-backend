@@ -1,5 +1,6 @@
 import csv
 from io import TextIOWrapper, StringIO
+from .shopify_columns import SHOPIFY_COLUMNS
 
 from .validation import (
     validate_stock, 
@@ -7,17 +8,6 @@ from .validation import (
     validate_text,
     validate_csv_structure
     )
-
-shopify_columns = {
-    'handle': 'Handle',
-    'title': 'Title',
-    'vendor': 'Vendor',
-    'option1_name': 'Option1 Name',
-    'option1_value': 'Option1 Value',
-    'sku': 'Variant SKU',
-    'price': 'Variant Price',
-    'stock': 'Variant Inventory Qty'
-}
 
 def create_handle(product_name):
     return product_name.lower().replace(" ", "-")
@@ -32,7 +22,7 @@ def create_error_csv(errors):
 
     return csv_file.getvalue()
 
-def transform_file(input_file, mapping, force=False):
+def transform_file(input_file, mappings, force=False):
     file = TextIOWrapper(input_file, encoding='utf-8')
     read_csv = csv.reader(file)
 
@@ -47,15 +37,50 @@ def transform_file(input_file, mapping, force=False):
 
     
 
+    column_by_key = {
+        column["key"]: column
+        for column in SHOPIFY_COLUMNS
+    }
+
+    active_mappings = []
+
+    for item in mappings:
+        shopify_key = item.get("shopifyKey")
+
+        if not shopify_key or shopify_key == "__dont_use":
+            continue
+
+        column = column_by_key.get(shopify_key)
+
+        if column is None:
+            continue
+
+        if column["type"] in ("generated", "default"):
+            if not item.get("enabled", True):
+                continue
+
+        elif column["type"] == "source":
+            if item.get("sourceIndex") is None:
+                continue
+
+        active_mappings.append({
+            "mapping": item,
+            "column": column
+        })
+
+    output_columns = [
+        item["column"]
+        for item in active_mappings
+    ]
+
+    source_mapping = {
+        item["column"]["key"]: item["mapping"]["sourceIndex"]
+        for item in active_mappings
+        if item["column"]["type"] == "source"
+    }
+
     output.append([
-        shopify_columns['handle'],
-        shopify_columns['title'],
-        shopify_columns['vendor'],
-        shopify_columns['option1_name'],
-        shopify_columns['option1_value'],
-        shopify_columns['sku'],
-        shopify_columns['stock'],
-        shopify_columns['price']
+        column["label"] for column in output_columns
     ])
 
     for row_number, row in enumerate(rows, start=2):
@@ -74,108 +99,75 @@ def transform_file(input_file, mapping, force=False):
         }
 
     
-    for row_number ,row in enumerate(rows, start=2):
-        if mapping['title'] != None:
-            product_name = row[mapping['title']]
+    for row_number, row in enumerate(rows, start=2):
+        shopify_values = {}
 
-            if not validate_text(product_name):
-                errors.append({
-                    'field': 'title',
-                    'row': row_number,
-                    'value': product_name
-                })
+        for item in active_mappings:
+            column = item["column"]
+            key = column["key"]
+            column_type = column["type"]
 
-                if force:
-                    product_name = 'Empty'
+            if column_type == "generated":
+                if key == "handle":
+                    title_index = source_mapping.get("title")
 
-            handle = create_handle(product_name)
-        else:
-            product_name = None
-            handle = None
+                    if title_index is not None:
+                        product_name = row[title_index]
+                        shopify_values[key] = create_handle(product_name)
+                    else:
+                        shopify_values[key] = ""
 
-        
+            elif column_type == "default":
+                if key == "option1_name":
+                    shopify_values[key] = "Title"
+                elif key == "option1_value":
+                    shopify_values[key] = "Default Title"
 
-        if mapping['sku'] != None:
-            product_code = row[mapping['sku']]
+            elif column_type == "source":
+                source_index = item["mapping"]["sourceIndex"]
+                value = row[source_index]
+                shopify_values[key] = value
 
-            if not validate_text(product_code):
-                errors.append({
-                    'field': 'sku',
-                    'row': row_number,
-                    'value': product_code
-                })
+                if key == "title" and not validate_text(value):
+                    errors.append({
+                        "field": key,
+                        "row": row_number,
+                        "value": value
+                    })
 
-                if force:
-                    product_code = 'Empty'
-        else:
-            product_code = None
+                elif key == "sku" and not validate_text(value):
+                    errors.append({
+                        "field": key,
+                        "row": row_number,
+                        "value": value
+                    })
 
-        if mapping['vendor'] != None:
-            brand = row[mapping['vendor']]
+                elif key == "vendor" and not validate_text(value):
+                    errors.append({
+                        "field": key,
+                        "row": row_number,
+                        "value": value
+                    })
 
-            if not validate_text(brand):
-                errors.append({
-                    'field': 'vendor',
-                    'row': row_number,
-                    'value': brand
-                })
+                elif key == "price" and not validate_price(value):
+                    errors.append({
+                        "field": key,
+                        "row": row_number,
+                        "value": value
+                    })
 
-                if force:
-                    brand = 'Empty'
-        else:
-            brand = None
-
-        if mapping['price'] != None:
-            price = row[mapping['price']]
-
-            if not validate_price(price):
-                errors.append({
-                    'field': 'price',
-                    'row': row_number,
-                    'value': price
-                })
-
-                if force:
-                    price = '0'
-        else:
-            price = None
-
-        if mapping['stock'] != None:
-            stock = row[mapping['stock']]
-
-            if not validate_stock(stock):
-                errors.append({
-                    'field': 'stock',
-                    'row': row_number,
-                    'value': stock
-                })
-
-                if force:
-                    stock = '0'
-        else:
-            stock = None
-
-
-        shopify_values = {
-            'handle': handle,
-            'title': product_name,
-            'sku': product_code,
-            'stock': stock,
-            'vendor': brand,
-            'price': price
-        }
+                elif key == "stock" and not validate_stock(value):
+                    errors.append({
+                        "field": key,
+                        "row": row_number,
+                        "value": value
+                    })
 
         shopify_rows.append(shopify_values)
 
         output.append([
-            shopify_values['handle'],
-            shopify_values['title'],
-            shopify_values['vendor'],
-            'Title',
-            'Default Title',
-            shopify_values['sku'],
-            shopify_values['stock'],
-            shopify_values['price']
+            shopify_values.get(column["key"], "")
+            for column in output_columns
         ])
 
     if errors and not force:
